@@ -160,4 +160,3 @@ ENV ImageOS=ubuntu24
 #COPY --from=build / /
 
 ENTRYPOINT ["/home/runner/bin/entrypoint.sh"]
-CMD ["dockerd"]
