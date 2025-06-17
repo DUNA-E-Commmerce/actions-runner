@@ -134,6 +134,18 @@ RUN ARCH=$(echo ${TARGETPLATFORM} | cut -d / -f2) \
 COPY docker-check.sh /home/runner/bin/docker-check.sh
 RUN chmod +x /home/runner/bin/docker-check.sh
 
+# Copy docker setup script
+COPY docker-setup.sh /home/runner/bin/docker-setup.sh
+RUN chmod +x /home/runner/bin/docker-setup.sh
+
+# Copy custom entrypoint
+COPY entrypoint.sh /home/runner/bin/entrypoint.sh
+RUN chmod +x /home/runner/bin/entrypoint.sh
+
+# Copy Docker fix script
+COPY docker-fix.sh /home/runner/bin/docker-fix.sh
+RUN chmod +x /home/runner/bin/docker-fix.sh
+
 # Add the Python "User Script Directory" to the PATH
 ENV HOME=/home/runner
 ENV PATH="${PATH}:${HOME}/.local/bin:/home/runner/bin"
@@ -145,4 +157,4 @@ USER runner
 ## Squashing time ...
 #COPY --from=build / /
 
-ENTRYPOINT ["/usr/local/bin/dumb-init", "--"]
+ENTRYPOINT ["/home/runner/bin/entrypoint.sh", "/usr/local/bin/dumb-init", "--"]
