@@ -58,7 +58,9 @@ RUN apt-get update \
 
 # Runner user
 RUN adduser --disabled-password --gecos "" --uid 1001 runner \
+  && groupadd docker \
   && usermod -aG sudo runner \
+  && usermod -aG docker runner \
   && echo "runner ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
 # Make and set the working directory
@@ -127,6 +129,10 @@ RUN ARCH=$(echo ${TARGETPLATFORM} | cut -d / -f2) \
   && if [ "$ARCH" = "amd64" ]; then export ARCH=x86_64 ; fi \
   && curl --create-dirs -L "https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-Linux-${ARCH}" -o /home/runner/bin/docker-compose ; \
   chmod +x /home/runner/bin/docker-compose
+
+# Copy docker check script
+COPY docker-check.sh /home/runner/bin/docker-check.sh
+RUN chmod +x /home/runner/bin/docker-check.sh
 
 # Add the Python "User Script Directory" to the PATH
 ENV HOME=/home/runner
