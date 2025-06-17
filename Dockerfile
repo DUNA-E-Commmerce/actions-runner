@@ -38,12 +38,15 @@ RUN apt-get update \
   libyaml-dev \
   locales \
   lsb-release \
+  make \
   openssl \
   pigz \
   pkg-config \
   software-properties-common \
+  sudo \
   tar \
   time \
+  tree \
   tzdata \
   uidmap \
   unzip \
@@ -72,6 +75,16 @@ RUN export ARCH=$(echo ${TARGETPLATFORM} | cut -d / -f2) \
   && rm -rf docker.tgz
 
 RUN install -o root -g root -m 755 docker/* /usr/bin/ && rm -rf docker
+
+# Install AWS CLI v2
+RUN export ARCH=$(echo ${TARGETPLATFORM} | cut -d / -f2) \
+  && echo "ARCH: $ARCH" \
+  && if [ "$ARCH" = "arm64" ]; then export AWS_ARCH=aarch64 ; fi \
+  && if [ "$ARCH" = "amd64" ]; then export AWS_ARCH=x86_64 ; fi \
+  && curl -fLo awscliv2.zip "https://awscli.amazonaws.com/awscli-exe-linux-${AWS_ARCH}.zip" \
+  && unzip awscliv2.zip \
+  && ./aws/install \
+  && rm -rf awscliv2.zip aws
 
 # Runner download supports amd64 as x64
 RUN export ARCH=$(echo ${TARGETPLATFORM} | cut -d / -f2) \
