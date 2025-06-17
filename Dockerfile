@@ -57,11 +57,13 @@ RUN apt-get update \
   && rm -rf /var/lib/apt/lists/*
 
 # Runner user
-RUN adduser --disabled-password --gecos "" --uid 1001 runner
+RUN adduser --disabled-password --gecos "" --uid 1001 runner \
+  && usermod -aG sudo runner \
+  && echo "runner ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
 # Make and set the working directory
 RUN mkdir -p /home/runner \
-  && chown -R $USERNAME:$GID /home/runner
+  && chown -R runner:runner /home/runner
 
 WORKDIR /home/runner
 
@@ -126,18 +128,10 @@ RUN ARCH=$(echo ${TARGETPLATFORM} | cut -d / -f2) \
   && curl --create-dirs -L "https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-Linux-${ARCH}" -o /home/runner/bin/docker-compose ; \
   chmod +x /home/runner/bin/docker-compose
 
-## Squash it!
-#FROM scratch AS final
-#
-## Set environment variables needed at build or run
-#ENV DEBIAN_FRONTEND=noninteractive
-#ENV RUNNER_MANUALLY_TRAP_SIG=1
-#ENV ACTIONS_RUNNER_PRINT_LOG_TO_STDOUT=1
-#
-## Add the Python "User Script Directory" to the PATH
-#ENV HOME=/home/runner
-#ENV PATH="${PATH}:${HOME}/.local/bin:/home/runner/bin"
-#ENV ImageOS=ubuntu24
+# Add the Python "User Script Directory" to the PATH
+ENV HOME=/home/runner
+ENV PATH="${PATH}:${HOME}/.local/bin:/home/runner/bin"
+ENV ImageOS=ubuntu24
 
 # No group definition, as that makes it harder to run docker.
 USER runner
