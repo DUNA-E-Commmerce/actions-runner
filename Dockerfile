@@ -126,23 +126,23 @@ RUN ARCH=$(echo ${TARGETPLATFORM} | cut -d / -f2) \
   && curl --create-dirs -L "https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-Linux-${ARCH}" -o /home/runner/bin/docker-compose ; \
   chmod +x /home/runner/bin/docker-compose
 
-# Squash it!
-FROM scratch AS final
-
-# Set environment variables needed at build or run
-ENV DEBIAN_FRONTEND=noninteractive
-ENV RUNNER_MANUALLY_TRAP_SIG=1
-ENV ACTIONS_RUNNER_PRINT_LOG_TO_STDOUT=1
-
-# Add the Python "User Script Directory" to the PATH
-ENV HOME=/home/runner
-ENV PATH="${PATH}:${HOME}/.local/bin:/home/runner/bin"
-ENV ImageOS=ubuntu24
+## Squash it!
+#FROM scratch AS final
+#
+## Set environment variables needed at build or run
+#ENV DEBIAN_FRONTEND=noninteractive
+#ENV RUNNER_MANUALLY_TRAP_SIG=1
+#ENV ACTIONS_RUNNER_PRINT_LOG_TO_STDOUT=1
+#
+## Add the Python "User Script Directory" to the PATH
+#ENV HOME=/home/runner
+#ENV PATH="${PATH}:${HOME}/.local/bin:/home/runner/bin"
+#ENV ImageOS=ubuntu24
 
 # No group definition, as that makes it harder to run docker.
 USER runner
 
-# Squashing time ...
-COPY --from=build / /
+## Squashing time ...
+#COPY --from=build / /
 
 ENTRYPOINT ["/usr/local/bin/dumb-init", "--"]
