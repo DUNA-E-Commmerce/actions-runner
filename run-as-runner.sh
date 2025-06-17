@@ -9,7 +9,7 @@ echo "⏳ Waiting for Docker daemon..."
 
 if [ $? -eq 0 ]; then
     echo "✅ Docker is ready! Switching to runner user..."
-    
+
     # Switch to runner user and execute the GitHub Actions runner
     exec su - runner -c "cd /home/runner && ./run.sh"
 else

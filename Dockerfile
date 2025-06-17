@@ -147,6 +147,21 @@ RUN chmod +x /home/runner/bin/docker-health.sh
 COPY run-as-runner.sh /home/runner/bin/run-as-runner.sh
 RUN chmod +x /home/runner/bin/run-as-runner.sh
 
+# Copy default run script if the original doesn't exist
+COPY default-run.sh /home/runner/default-run.sh
+RUN chmod +x /home/runner/default-run.sh
+
+# Create a wrapper run.sh that uses default if runner not configured
+RUN echo '#!/bin/bash' > /home/runner/run.sh \
+    && echo 'if [ -f ".runner" ]; then' >> /home/runner/run.sh \
+    && echo '  exec ./run.sh.real "$@"' >> /home/runner/run.sh \
+    && echo 'else' >> /home/runner/run.sh \
+    && echo '  exec ./default-run.sh "$@"' >> /home/runner/run.sh \
+    && echo 'fi' >> /home/runner/run.sh \
+    && chmod +x /home/runner/run.sh \
+    && chown runner:runner /home/runner/run.sh \
+    && chown runner:runner /home/runner/default-run.sh
+
 # Add the Python "User Script Directory" to the PATH
 ENV HOME=/home/runner
 ENV PATH="${PATH}:${HOME}/.local/bin:/home/runner/bin"
@@ -160,3 +175,5 @@ ENV ImageOS=ubuntu24
 #COPY --from=build / /
 
 ENTRYPOINT ["/home/runner/bin/entrypoint.sh"]
+
+CMD [ "/home/runner/run.sh" ]

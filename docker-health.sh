@@ -17,7 +17,7 @@ while [ $COUNTER -lt $TIMEOUT ]; do
         docker info | head -5
         exit 0
     fi
-    
+
     sleep 2
     COUNTER=$((COUNTER + 2))
     echo "⏳ Waiting... ($COUNTER/$TIMEOUT seconds)"
