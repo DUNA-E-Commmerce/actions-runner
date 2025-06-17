@@ -13,15 +13,12 @@ ARG DUMB_INIT_VERSION=1.2.5
 
 # Other arguments, expose TARGETPLATFORM for multi-arch builds
 ARG DEBUG=false
-ARG TARGETPLATFORM
+ARG TARGETPLATFORM=linux/amd64
 
 # Set environment variables needed at build or run
 ENV DEBIAN_FRONTEND=noninteractive
 ENV RUNNER_MANUALLY_TRAP_SIG=1
 ENV ACTIONS_RUNNER_PRINT_LOG_TO_STDOUT=1
-
-# Copy in environment variables not needed at build
-COPY images/.env /.env
 
 # Shell setup
 SHELL ["/bin/bash", "-o", "pipefail", "-c"]
