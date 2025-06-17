@@ -1,18 +1,20 @@
 #!/bin/bash
 
-echo "🚀 Starting GitHub Actions Runner Container"
-echo "==========================================="
+echo "🚀 Starting GitHub Actions Runner Container with Docker-in-Docker"
+echo "================================================================="
 
-# Run docker setup
-echo "🔧 Setting up Docker connectivity..."
-/home/runner/bin/docker-setup.sh
+# Start Docker daemon
+echo "� Starting Docker daemon..."
+/home/runner/bin/start-docker.sh
 
-# Check if docker is working
+# Verify Docker is working
 if docker version >/dev/null 2>&1; then
     echo "✅ Docker is ready!"
+    docker info | head -10
 else
-    echo "⚠️  Docker setup needs manual intervention"
-    echo "💡 You can run: docker exec -it <container> /home/runner/bin/docker-setup.sh"
+    echo "❌ Docker failed to start"
+    echo "� Attempting manual setup..."
+    /home/runner/bin/docker-setup.sh
 fi
 
 echo ""

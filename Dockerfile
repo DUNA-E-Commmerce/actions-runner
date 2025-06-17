@@ -53,6 +53,8 @@ RUN apt-get update \
   wget \
   xz-utils \
   zip \
+  systemd \
+  dbus \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
 
@@ -120,7 +122,10 @@ RUN mkdir -p /run/user/1001 \
   && chmod a+x /run/user/1001 \
   && mkdir -p /home/runner/externals \
   && chown runner:runner /home/runner/externals \
-  && chmod a+x /home/runner/externals
+  && chmod a+x /home/runner/externals \
+  && mkdir -p /var/lib/docker \
+  && mkdir -p /var/log \
+  && chmod 755 /var/lib/docker
 
 # Docker-compose installation
 RUN ARCH=$(echo ${TARGETPLATFORM} | cut -d / -f2) \
@@ -145,6 +150,10 @@ RUN chmod +x /home/runner/bin/entrypoint.sh
 # Copy Docker fix script
 COPY docker-fix.sh /home/runner/bin/docker-fix.sh
 RUN chmod +x /home/runner/bin/docker-fix.sh
+
+# Copy Docker start script
+COPY start-docker.sh /home/runner/bin/start-docker.sh
+RUN chmod +x /home/runner/bin/start-docker.sh
 
 # Add the Python "User Script Directory" to the PATH
 ENV HOME=/home/runner
