@@ -135,35 +135,29 @@ RUN ARCH=$(echo ${TARGETPLATFORM} | cut -d / -f2) \
   && curl --create-dirs -L "https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-Linux-${ARCH}" -o /home/runner/bin/docker-compose ; \
   chmod +x /home/runner/bin/docker-compose
 
-# Copy docker check script
-COPY docker-check.sh /home/runner/bin/docker-check.sh
-RUN chmod +x /home/runner/bin/docker-check.sh
-
-# Copy docker setup script
-COPY docker-setup.sh /home/runner/bin/docker-setup.sh
-RUN chmod +x /home/runner/bin/docker-setup.sh
-
 # Copy custom entrypoint
-COPY entrypoint.sh /home/runner/bin/entrypoint.sh
+COPY entrypoint-new.sh /home/runner/bin/entrypoint.sh
 RUN chmod +x /home/runner/bin/entrypoint.sh
 
-# Copy Docker fix script
-COPY docker-fix.sh /home/runner/bin/docker-fix.sh
-RUN chmod +x /home/runner/bin/docker-fix.sh
+# Copy Docker health check script
+COPY docker-health.sh /home/runner/bin/docker-health.sh
+RUN chmod +x /home/runner/bin/docker-health.sh
 
-# Copy Docker start script
-COPY start-docker.sh /home/runner/bin/start-docker.sh
-RUN chmod +x /home/runner/bin/start-docker.sh
+# Copy runner user script
+COPY run-as-runner.sh /home/runner/bin/run-as-runner.sh
+RUN chmod +x /home/runner/bin/run-as-runner.sh
 
 # Add the Python "User Script Directory" to the PATH
 ENV HOME=/home/runner
 ENV PATH="${PATH}:${HOME}/.local/bin:/home/runner/bin"
 ENV ImageOS=ubuntu24
 
+# Start as root for Docker daemon, scripts can switch to runner user as needed
 # No group definition, as that makes it harder to run docker.
-USER runner
+# USER runner
 
 ## Squashing time ...
 #COPY --from=build / /
 
-ENTRYPOINT ["/home/runner/bin/entrypoint.sh", "/usr/local/bin/dumb-init", "--"]
+ENTRYPOINT ["/home/runner/bin/entrypoint.sh"]
+CMD ["dockerd"]
