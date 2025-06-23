@@ -49,7 +49,6 @@ RUN apt-get update \
   wget \
   xz-utils \
   zip \
-  systemd \
   dbus \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
