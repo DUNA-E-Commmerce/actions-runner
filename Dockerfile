@@ -132,10 +132,6 @@ RUN mkdir -p /run/user/1001 \
   && chown runner:runner /home/runner/externals \
   && chmod a+x /home/runner/externals
 
-# Copy custom entrypoint
-COPY entrypoint.sh /home/runner/bin/entrypoint.sh
-RUN chmod +x /home/runner/bin/entrypoint.sh
-
 # Add Go, Python and Node.js to PATH
 ENV HOME=/home/runner
 ENV PATH="${PATH}:${HOME}/.local/bin:/home/runner/bin:/usr/local/go/bin"
