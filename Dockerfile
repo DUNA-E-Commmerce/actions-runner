@@ -64,7 +64,7 @@ WORKDIR /home/runner
 
 # Install Node.js 18
 RUN curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash - \
-  && apt-get install -y nodejs
+  && apt-get install -y --no-install-recommends nodejs
 
 # Install Python 3 (default version 3.12 in Ubuntu 24.04) and pip
 RUN apt-get update \
