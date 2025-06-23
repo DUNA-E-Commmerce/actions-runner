@@ -4,10 +4,6 @@ FROM ubuntu:24.04 AS build
 ARG RUNNER_VERSION=2.324.0
 ARG RUNNER_CONTAINER_HOOKS_VERSION=0.7.0
 
-# Docker and Compose arguments
-ARG DOCKER_VERSION=28.1.1
-ARG COMPOSE_VERSION=v2.36.1
-
 # Dumb-init version
 ARG DUMB_INIT_VERSION=1.2.5
 
@@ -60,9 +56,7 @@ RUN apt-get update \
 
 # Runner user
 RUN adduser --disabled-password --gecos "" --uid 1001 runner \
-  && groupadd docker \
   && usermod -aG sudo runner \
-  && usermod -aG docker runner \
   && echo "runner ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
 
 # Make and set the working directory
@@ -71,16 +65,31 @@ RUN mkdir -p /home/runner \
 
 WORKDIR /home/runner
 
-# Install Docker
+# Install Node.js 18
+RUN curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash - \
+  && apt-get install -y nodejs
+
+# Install Python 3.11 and pip
+RUN apt-get update \
+  && apt-get install -y --no-install-recommends \
+  python3.11 \
+  python3.11-dev \
+  python3.11-venv \
+  python3-pip \
+  && update-alternatives --install /usr/bin/python3 python3 /usr/bin/python3.11 1 \
+  && update-alternatives --install /usr/bin/python python /usr/bin/python3.11 1 \
+  && python3 -m pip install --upgrade pip \
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists/*
+
+# Install Go 1.23.2
 RUN export ARCH=$(echo ${TARGETPLATFORM} | cut -d / -f2) \
   && echo "ARCH: $ARCH" \
-  && if [ "$ARCH" = "arm64" ]; then export DOCKER_ARCH=aarch64 ; fi \
-  && if [ "$ARCH" = "amd64" ]; then export DOCKER_ARCH=x86_64 ; fi \
-  && curl -fLo docker.tgz https://download.docker.com/linux/static/stable/${DOCKER_ARCH}/docker-${DOCKER_VERSION}.tgz \
-  && tar zxvf docker.tgz \
-  && rm -rf docker.tgz
-
-RUN install -o root -g root -m 755 docker/* /usr/bin/ && rm -rf docker
+  && if [ "$ARCH" = "arm64" ]; then export GO_ARCH=arm64 ; fi \
+  && if [ "$ARCH" = "amd64" ]; then export GO_ARCH=amd64 ; fi \
+  && curl -fLo go.tar.gz "https://go.dev/dl/go1.23.2.linux-${GO_ARCH}.tar.gz" \
+  && tar -C /usr/local -xzf go.tar.gz \
+  && rm go.tar.gz
 
 # Install AWS CLI v2
 RUN export ARCH=$(echo ${TARGETPLATFORM} | cut -d / -f2) \
@@ -122,35 +131,27 @@ RUN mkdir -p /run/user/1001 \
   && chmod a+x /run/user/1001 \
   && mkdir -p /home/runner/externals \
   && chown runner:runner /home/runner/externals \
-  && chmod a+x /home/runner/externals \
-  && mkdir -p /var/lib/docker \
-  && mkdir -p /var/log \
-  && chmod 755 /var/lib/docker
-
-# Docker-compose installation
-RUN ARCH=$(echo ${TARGETPLATFORM} | cut -d / -f2) \
-  && export ARCH \
-  && if [ "$ARCH" = "arm64" ]; then export ARCH=aarch64 ; fi \
-  && if [ "$ARCH" = "amd64" ]; then export ARCH=x86_64 ; fi \
-  && curl --create-dirs -L "https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-Linux-${ARCH}" -o /home/runner/bin/docker-compose ; \
-  chmod +x /home/runner/bin/docker-compose
+  && chmod a+x /home/runner/externals
 
 # Copy custom entrypoint
 COPY entrypoint.sh /home/runner/bin/entrypoint.sh
 RUN chmod +x /home/runner/bin/entrypoint.sh
 
-# Add the Python "User Script Directory" to the PATH
+# Add Go, Python and Node.js to PATH
 ENV HOME=/home/runner
-ENV PATH="${PATH}:${HOME}/.local/bin:/home/runner/bin"
+ENV PATH="${PATH}:${HOME}/.local/bin:/home/runner/bin:/usr/local/go/bin"
 ENV ImageOS=ubuntu24
 
-# Start as root for Docker daemon, scripts can switch to runner user as needed
-# No group definition, as that makes it harder to run docker.
-# USER runner
+# Start as runner user
+USER runner
 
-## Squashing time ...
-#COPY --from=build / /
+# Create run.sh script for compatibility with GitHub Actions Runner Controller
+RUN echo '#!/bin/bash' > /home/runner/run.sh \
+  && echo 'set -e' >> /home/runner/run.sh \
+  && echo 'exec /home/runner/bin/entrypoint.sh' >> /home/runner/run.sh \
+  && chmod +x /home/runner/run.sh
 
+# Default entrypoint
 ENTRYPOINT ["/home/runner/bin/entrypoint.sh"]
 
-#CMD [ "/home/runner/run.sh" ]
+CMD ["/home/runner/run.sh"]
