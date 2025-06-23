@@ -144,13 +144,4 @@ ENV ImageOS=ubuntu24
 # Start as runner user
 USER runner
 
-# Create run.sh script for compatibility with GitHub Actions Runner Controller
-RUN echo '#!/bin/bash' > /home/runner/run.sh \
-  && echo 'set -e' >> /home/runner/run.sh \
-  && echo 'exec /home/runner/bin/entrypoint.sh' >> /home/runner/run.sh \
-  && chmod +x /home/runner/run.sh
-
-# Default entrypoint
-ENTRYPOINT ["/home/runner/bin/entrypoint.sh"]
-
 CMD ["/home/runner/run.sh"]
