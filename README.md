@@ -90,11 +90,11 @@ Este proyecto incluye GitHub Actions para deploy automático a GitHub Container 
 # Hacer login a GitHub Container Registry
 echo $GITHUB_TOKEN | docker login ghcr.io -u tu-usuario --password-stdin
 
-# Pull de la imagen
-docker pull ghcr.io/tu-org/tu-repo:latest
+# Pull de la imagen (nota: el nombre debe estar en minúsculas)
+docker pull ghcr.io/duna-e-commmerce/actions-runner:latest
 
 # Ejecutar la imagen
-docker run -it --rm --platform linux/amd64 ghcr.io/tu-org/tu-repo:latest /bin/bash
+docker run -it --rm --platform linux/amd64 ghcr.io/duna-e-commmerce/actions-runner:latest /bin/bash
 ```
 
 ### Permisos requeridos
@@ -119,7 +119,7 @@ El workflow usa `GITHUB_TOKEN` automáticamente con permisos de `packages: write
 - ✅ **Plataforma específica** linux/amd64
 - ✅ **Usuario no-root** para seguridad
 - ✅ **Herramientas verificadas** con testing automático
-- ✅ **Deploy automático** a ECR
+- ✅ **Deploy automático** a GitHub Container Registry
 
 ## 🐛 Troubleshooting
 
