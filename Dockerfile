@@ -116,7 +116,7 @@ RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python3.11
 RUN python3.11 -m pip install --upgrade pip setuptools wheel
 
 # Instalar AWS SAM CLI (paso 11)
-RUN python3.11 -m pip install aws-sam-cli
+RUN python3.11 -m pip install --ignore-installed aws-sam-cli
 
 # Cambiar al directorio del runner
 WORKDIR /home/runner

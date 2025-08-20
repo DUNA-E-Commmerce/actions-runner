@@ -53,12 +53,13 @@ run: ## 🚀 Ejecutar el contenedor
 test: ## 🧪 Probar que todas las herramientas funcionan
 	@echo "$(BLUE)🧪 Probando herramientas instaladas...$(NC)"
 	@docker run --rm $(IMAGE_NAME):$(IMAGE_TAG) sh -c "\
-		echo '=== AWS CLI ===' && aws --version && \
-		echo '=== Node.js ===' && node --version && npm --version && \
-		echo '=== Go ===' && go version && \
-		echo '=== Python ===' && python3.11 --version && \
-		echo '=== Make ===' && make --version && \
-		echo '=== Tree ===' && tree --version"
+		echo '$(CYAN)=== AWS CLI ===$(NC)' && aws --version && \
+		echo '$(CYAN)=== Node.js ===$(NC)' && node --version && npm --version && \
+		echo '$(CYAN)=== Go ===$(NC)' && go version && \
+		echo '$(CYAN)=== Python ===$(NC)' && python3.11 --version && \
+		echo '$(CYAN)=== Make ===$(NC)' && make --version && \
+		echo '$(CYAN)=== Tree ===$(NC)' && tree --version" && \
+		echo '$(CYAN)=== Sam Local ===$(NC)' && sam --version
 	@echo "$(GREEN)✅ Todas las herramientas funcionan correctamente$(NC)"
 
 # Comando por defecto
