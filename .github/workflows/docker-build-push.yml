@@ -52,7 +52,7 @@ jobs:
             org.opencontainers.image.source=${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
             org.opencontainers.image.title=GitHub Actions Runner
-            org.opencontainers.image.description=Self-hosted GitHub Actions runner with development tools
+            org.opencontainers.image.description=Self-hosted GitHub Actions runner with development tools including AWS CLI, SAM Local, Node.js, Go, Python, and more
 
       - name: Build and push Docker image (linux/amd64 only)
         uses: docker/build-push-action@v5
@@ -82,6 +82,14 @@ jobs:
           echo "- Registry: ${{ env.REGISTRY }}" >> $GITHUB_STEP_SUMMARY
           echo "- Image: ${{ steps.repo.outputs.owner }}/actions-runner" >> $GITHUB_STEP_SUMMARY
           echo "- Tags: ${{ steps.meta.outputs.tags }}" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
+          echo "**Included Tools:**" >> $GITHUB_STEP_SUMMARY
+          echo "- AWS CLI v2" >> $GITHUB_STEP_SUMMARY
+          echo "- SAM CLI (latest)" >> $GITHUB_STEP_SUMMARY
+          echo "- Node.js 18" >> $GITHUB_STEP_SUMMARY
+          echo "- Go 1.23.2" >> $GITHUB_STEP_SUMMARY
+          echo "- Python 3.11" >> $GITHUB_STEP_SUMMARY
+          echo "- GitHub Actions Runner 2.323.0" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Image Digest:** \`${{ steps.build.outputs.digest }}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY

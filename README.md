@@ -7,6 +7,7 @@
 | Herramienta | Versión | Propósito |
 |-------------|---------|-----------|
 | **AWS CLI** | v2 | Interacción con servicios AWS |
+| **SAM CLI** | latest | Desarrollo y testing de aplicaciones serverless |
 | **Node.js** | 18 | Runtime JavaScript y npm |
 | **Go** | 1.23.2 | Compilador y herramientas Go |
 | **Python** | 3.11 | Intérprete Python con pip |
@@ -60,6 +61,47 @@ Una vez dentro del contenedor, configura el GitHub Actions Runner:
 ./run.sh
 ```
 
+## ⚡ Uso de SAM Local
+
+SAM Local está incluido para desarrollo serverless. Algunos comandos útiles:
+
+```bash
+# Inicializar un nuevo proyecto SAM
+sam init
+
+# Construir la aplicación
+sam build
+
+# Ejecutar API Gateway localmente
+sam local start-api
+
+# Invocar función Lambda localmente
+sam local invoke "FunctionName"
+
+# Probar con eventos
+sam local generate-event s3 put | sam local invoke "FunctionName"
+```
+
+### 🐳 Consideraciones para SAM Local
+
+Para usar SAM Local efectivamente en el contenedor:
+
+```bash
+# Ejecutar con acceso a Docker socket
+docker run -it --rm \
+  -v /var/run/docker.sock:/var/run/docker.sock \
+  -v $(pwd):/workspace \
+  -p 3000:3000 \
+  --platform linux/amd64 \
+  github-runner-ubuntu:latest /bin/bash
+
+# Dentro del contenedor
+cd /workspace
+sam init
+sam build
+sam local start-api --host 0.0.0.0
+```
+
 ## 🔧 Configuración Manual
 
 Si prefieres usar Docker directamente:
@@ -72,7 +114,7 @@ docker build --platform linux/amd64 -t github-runner-ubuntu:latest .
 docker run -it --rm --platform linux/amd64 github-runner-ubuntu:latest /bin/bash
 
 # Probar herramientas
-docker run --rm github-runner-ubuntu:latest sh -c "aws --version && node --version && go version"
+docker run --rm github-runner-ubuntu:latest sh -c "aws --version && sam --version && node --version && go version"
 ```
 
 ## 🚀 Deploy Automático
@@ -120,6 +162,8 @@ El workflow usa `GITHUB_TOKEN` automáticamente con permisos de `packages: write
 - ✅ **Usuario no-root** para seguridad
 - ✅ **Herramientas verificadas** con testing automático
 - ✅ **Deploy automático** a GitHub Container Registry
+- ✅ **SAM Local incluido** para desarrollo serverless
+- ✅ **SAM Local incluido** para desarrollo serverless
 
 ## 🐛 Troubleshooting
 
@@ -140,6 +184,15 @@ make test
 # Usar cache de Docker
 export DOCKER_BUILDKIT=1
 make build
+```
+
+### Problema: SAM Local no funciona
+```bash
+# Verificar instalación de SAM
+sam --version
+
+# Verificar que Docker está disponible para SAM
+docker --version
 ```
 
 ## 📄 Variables de Configuración
@@ -170,4 +223,4 @@ Para problemas o sugerencias:
 
 ---
 
-> **Nota**: Esta imagen está optimizada para usar como GitHub Self-Hosted Runner en entornos de desarrollo y CI/CD.
+> **Nota**: Esta imagen está optimizada para usar como GitHub Self-Hosted Runner en entornos de desarrollo y CI/CD con soporte completo para desarrollo serverless usando AWS SAM.

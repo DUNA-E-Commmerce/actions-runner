@@ -115,6 +115,9 @@ RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python3.11
 # Actualizar pip y herramientas básicas
 RUN python3.11 -m pip install --upgrade pip setuptools wheel
 
+# Instalar AWS SAM CLI (paso 11)
+RUN python3.11 -m pip install aws-sam-cli
+
 # Cambiar al directorio del runner
 WORKDIR /home/runner
 
@@ -140,6 +143,7 @@ USER runner
 # Verificaciones finales
 RUN echo "=== Verificando instalaciones ===" && \
     aws --version && \
+    sam --version && \
     node --version && \
     npm --version && \
     go version && \
