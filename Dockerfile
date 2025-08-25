@@ -64,35 +64,40 @@ RUN add-apt-repository ppa:git-core/ppa \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Python 3.13
-RUN add-apt-repository ppa:deadsnakes/ppa \
-    && apt update -y \
-    && apt install -y python3.13 python3.13-dev python3.13-venv \
-    && ln -sf /usr/bin/python3.13 /usr/bin/python3 \
-    && ln -sf /usr/bin/python3.13 /usr/bin/python \
-    && rm -rf /var/lib/apt/lists/*
+# Agregar repositorio Python deadsnakes (paso 7)
+RUN add-apt-repository ppa:deadsnakes/ppa -y
 
-# Install pip for Python 3.13
-RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python3.13
+# Instalar Python 3.11 (paso 8)
+RUN apt-get update && apt-get install --no-install-recommends -y \
+    python3.11 \
+    python3.11-dev \
+    python3.11-distutils \
+    python3.11-venv && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
+
+# Configurar Python 3.11
+RUN ln -sf /usr/bin/python3.11 /usr/local/bin/python3.11
+
+# Instalar pip para Python 3.11
+RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python3.11
 
 # Install Go 1.23.0 (stable base version)
-RUN export GO_ARCH=${TARGETARCH} \
-    && if [ "$GO_ARCH" = "amd64" ]; then export GO_ARCH=amd64 ; fi \
-    && if [ "$GO_ARCH" = "arm64" ]; then export GO_ARCH=arm64 ; fi \
-    && curl -fLo go.tar.gz https://go.dev/dl/go1.23.0.linux-${GO_ARCH}.tar.gz \
-    && tar -C /usr/local -xzf go.tar.gz \
-    && rm go.tar.gz
+ARG GO_VERSION=1.23.2
+RUN curl -fsSL https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz -o go.tar.gz && \
+    tar -C /usr/local -xzf go.tar.gz && \
+    rm go.tar.gz
 
 # Install AWS CLI v2 (latest)
-RUN export AWS_ARCH=${TARGETARCH} \
-    && if [ "$AWS_ARCH" = "amd64" ]; then export AWS_ARCH=x86_64 ; fi \
-    && if [ "$AWS_ARCH" = "arm64" ]; then export AWS_ARCH=aarch64 ; fi \
-    && curl -fLo awscliv2.zip "https://awscli.amazonaws.com/awscli-exe-linux-${AWS_ARCH}.zip" \
-    && unzip awscliv2.zip \
-    && ./aws/install \
-    && rm -rf awscliv2.zip aws/
+RUN curl -fsSL https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o awscliv2.zip && \
+    unzip awscliv2.zip && \
+    ./aws/install --install-dir /aws-cli-install --bin-dir /aws-cli-install/bin && \
+    rm -rf awscliv2.zip aws
 
-# Install SAM CLI (latest)
-RUN pip3 install --no-cache-dir aws-sam-cli-local
+# Actualizar pip y herramientas básicas
+RUN python3.11 -m pip install --upgrade pip setuptools wheel
+
+# Instalar AWS SAM CLI (paso 11)
+RUN python3.11 -m pip install --ignore-installed aws-sam-cli-local
 
 # Add Go to PATH
 ENV PATH="/usr/local/go/bin:${PATH}"
