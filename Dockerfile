@@ -93,11 +93,20 @@ RUN curl -fsSL https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o awscl
     ./aws/install --install-dir /aws-cli-install --bin-dir /aws-cli-install/bin && \
     rm -rf awscliv2.zip aws
 
+ENV PATH="/aws-cli-install/bin:/usr/local/go/bin:${PATH}"
+
 # Actualizar pip y herramientas básicas
 RUN python3.11 -m pip install --upgrade pip setuptools wheel
 
 # Instalar AWS SAM CLI (paso 11)
 RUN python3.11 -m pip install --ignore-installed aws-sam-cli-local
+
+# Instalar Node.js repository (paso 9)
+RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
+
+# Instalar Node.js (paso 10)
+RUN apt-get update && apt-get install -y nodejs && \
+    apt-get clean && rm -rf /var/lib/apt/lists/*
 
 # Add Go to PATH
 ENV PATH="/usr/local/go/bin:${PATH}"

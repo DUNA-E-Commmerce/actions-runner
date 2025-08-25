@@ -28,7 +28,9 @@ build: ## 🔨 Construir la imagen Docker
 .PHONY: run
 run: ## 🚀 Ejecutar el contenedor
 	@echo "$(BLUE)🚀 Ejecutando contenedor...$(NC)"
-	@docker run -it --rm \
+	@docker run \
+		--platform linux/amd64 \
+		-it --rm \
 		--name $(CONTAINER_NAME) \
 		--platform linux/amd64 \
 		$(IMAGE_NAME):$(IMAGE_TAG) \
@@ -37,9 +39,12 @@ run: ## 🚀 Ejecutar el contenedor
 .PHONY: test
 test: ## 🧪 Probar que todas las herramientas funcionan
 	@echo "$(BLUE)🧪 Probando herramientas instaladas...$(NC)"
-	@docker run --rm $(IMAGE_NAME):$(IMAGE_TAG) sh -c "\
+	@docker run \
+		--platform linux/amd64 \
+		--rm $(IMAGE_NAME):$(IMAGE_TAG) sh -c "\
 		echo '$(CYAN)=== AWS CLI ===$(NC)' && aws --version && \
-		echo '$(CYAN)=== Node.js ===$(NC)' && node --version && npm --version && \
+		echo '$(CYAN)=== Node.js ===$(NC)' && node --version && \
+		echo '$(CYAN)=== NPM ===$(NC)' && npm --version && \
 		echo '$(CYAN)=== Go ===$(NC)' && go version && \
 		echo '$(CYAN)=== Python ===$(NC)' && python3.11 --version && \
 		echo '$(CYAN)=== Make ===$(NC)' && make --version && \
