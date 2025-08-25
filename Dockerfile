@@ -42,19 +42,18 @@ ENV ImageOS=ubuntu22
 # Install basic packages
 RUN apt update -y \
     && apt install -y --no-install-recommends \
-        sudo \
-        lsb-release \
-        gpg-agent \
-        software-properties-common \
-        curl \
-        jq \
-        unzip \
-        tree \
-        make \
-        wget \
         ca-certificates \
+        curl \
         gnupg \
+        gpg-agent \
+        jq \
         lsb-release \
+        make \
+        software-properties-common \
+        sudo \
+        tree \
+        unzip \
+        wget \
     && rm -rf /var/lib/apt/lists/*
 
 # Configure git-core/ppa based on guidance here: https://git-scm.com/download/linux
