@@ -1,157 +1,114 @@
-# =============================================================================
-# STAGE 1: AWS CLI Builder
-# =============================================================================
-FROM ubuntu:22.04 AS aws-cli-builder
+# Source: https://github.com/dotnet/dotnet-docker
+FROM mcr.microsoft.com/dotnet/runtime-deps:8.0-jammy AS build
 
-RUN apt-get update && apt-get install --no-install-recommends -y \
-    ca-certificates \
-    curl \
-    unzip && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+ARG TARGETOS
+ARG TARGETARCH
+ARG RUNNER_VERSION
+ARG RUNNER_CONTAINER_HOOKS_VERSION=0.7.0
+ARG DOCKER_VERSION=28.3.3
+ARG BUILDX_VERSION=0.27.0
 
-WORKDIR /tmp
+RUN apt update -y && apt install curl unzip -y
 
-RUN curl -fsSL https://awscli.amazonaws.com/awscli-exe-linux-x86_64.zip -o awscliv2.zip && \
-    unzip awscliv2.zip && \
-    ./aws/install --install-dir /aws-cli-install --bin-dir /aws-cli-install/bin && \
-    rm -rf awscliv2.zip aws
+WORKDIR /actions-runner
+RUN export RUNNER_ARCH=${TARGETARCH} \
+    && if [ "$RUNNER_ARCH" = "amd64" ]; then export RUNNER_ARCH=x64 ; fi \
+    && curl -f -L -o runner.tar.gz https://github.com/actions/runner/releases/download/v${RUNNER_VERSION}/actions-runner-${TARGETOS}-${RUNNER_ARCH}-${RUNNER_VERSION}.tar.gz \
+    && tar xzf ./runner.tar.gz \
+    && rm runner.tar.gz
 
-# =============================================================================
-# STAGE 2: Go Builder
-# =============================================================================
-FROM ubuntu:22.04 AS go-builder
+RUN curl -f -L -o runner-container-hooks.zip https://github.com/actions/runner-container-hooks/releases/download/v${RUNNER_CONTAINER_HOOKS_VERSION}/actions-runner-hooks-k8s-${RUNNER_CONTAINER_HOOKS_VERSION}.zip \
+    && unzip ./runner-container-hooks.zip -d ./k8s \
+    && rm runner-container-hooks.zip
 
-RUN apt-get update && apt-get install --no-install-recommends -y \
-    ca-certificates \
-    curl && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+RUN export RUNNER_ARCH=${TARGETARCH} \
+    && if [ "$RUNNER_ARCH" = "amd64" ]; then export DOCKER_ARCH=x86_64 ; fi \
+    && if [ "$RUNNER_ARCH" = "arm64" ]; then export DOCKER_ARCH=aarch64 ; fi \
+    && curl -fLo docker.tgz https://download.docker.com/${TARGETOS}/static/stable/${DOCKER_ARCH}/docker-${DOCKER_VERSION}.tgz \
+    && tar zxvf docker.tgz \
+    && rm -rf docker.tgz \
+    && mkdir -p /usr/local/lib/docker/cli-plugins \
+    && curl -fLo /usr/local/lib/docker/cli-plugins/docker-buildx \
+        "https://github.com/docker/buildx/releases/download/v${BUILDX_VERSION}/buildx-v${BUILDX_VERSION}.linux-${TARGETARCH}" \
+    && chmod +x /usr/local/lib/docker/cli-plugins/docker-buildx
 
-WORKDIR /tmp
-
-ARG GO_VERSION=1.23.2
-RUN curl -fsSL https://go.dev/dl/go${GO_VERSION}.linux-amd64.tar.gz -o go.tar.gz && \
-    tar -C /usr/local -xzf go.tar.gz && \
-    rm go.tar.gz
-
-# =============================================================================
-# IMAGEN PRINCIPAL - Ubuntu 22.04 (ULTRA CONSERVADORA)
-# =============================================================================
-FROM ubuntu:22.04
+FROM mcr.microsoft.com/dotnet/runtime-deps:8.0-jammy
 
 ENV DEBIAN_FRONTEND=noninteractive
+ENV RUNNER_MANUALLY_TRAP_SIG=1
+ENV ACTIONS_RUNNER_PRINT_LOG_TO_STDOUT=1
+ENV ImageOS=ubuntu22
 
-# Actualizar sistema base
-RUN apt-get update && apt-get upgrade -y
+# Install basic packages
+RUN apt update -y \
+    && apt install -y --no-install-recommends \
+        sudo \
+        lsb-release \
+        gpg-agent \
+        software-properties-common \
+        curl \
+        jq \
+        unzip \
+        tree \
+        make \
+        wget \
+        ca-certificates \
+        gnupg \
+        lsb-release \
+    && rm -rf /var/lib/apt/lists/*
 
-# Instalar herramientas básicas (paso 1)
-RUN apt-get install --no-install-recommends -y \
-    ca-certificates \
-    curl \
-    wget \
-    gnupg \
-    lsb-release && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+# Configure git-core/ppa based on guidance here: https://git-scm.com/download/linux
+RUN add-apt-repository ppa:git-core/ppa \
+    && apt update -y \
+    && apt install -y git \
+    && rm -rf /var/lib/apt/lists/*
 
-# Instalar sudo (paso 2)
-RUN apt-get update && apt-get install --no-install-recommends -y sudo && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+# Install Python 3.13
+RUN add-apt-repository ppa:deadsnakes/ppa \
+    && apt update -y \
+    && apt install -y python3.13 python3.13-dev python3.13-venv \
+    && ln -sf /usr/bin/python3.13 /usr/bin/python3 \
+    && ln -sf /usr/bin/python3.13 /usr/bin/python \
+    && rm -rf /var/lib/apt/lists/*
 
-# Crear usuario runner (paso 3)
-RUN useradd -m -s /bin/bash runner
+# Install pip for Python 3.13
+RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python3.13
 
-# Agregar usuario al grupo sudo (paso 4)
-RUN usermod -aG sudo runner && \
-    echo "runner ALL=(ALL) NOPASSWD:ALL" >> /etc/sudoers
+# Install Go 1.23.0 (stable base version)
+RUN export GO_ARCH=${TARGETARCH} \
+    && if [ "$GO_ARCH" = "amd64" ]; then export GO_ARCH=amd64 ; fi \
+    && if [ "$GO_ARCH" = "arm64" ]; then export GO_ARCH=arm64 ; fi \
+    && curl -fLo go.tar.gz https://go.dev/dl/go1.23.0.linux-${GO_ARCH}.tar.gz \
+    && tar -C /usr/local -xzf go.tar.gz \
+    && rm go.tar.gz
 
-# Instalar herramientas de desarrollo (paso 5)
-RUN apt-get update && apt-get install --no-install-recommends -y \
-    build-essential \
-    git \
-    make \
-    tree \
-    unzip \
-    jq \
-    iputils-ping && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+# Install AWS CLI v2 (latest)
+RUN export AWS_ARCH=${TARGETARCH} \
+    && if [ "$AWS_ARCH" = "amd64" ]; then export AWS_ARCH=x86_64 ; fi \
+    && if [ "$AWS_ARCH" = "arm64" ]; then export AWS_ARCH=aarch64 ; fi \
+    && curl -fLo awscliv2.zip "https://awscli.amazonaws.com/awscli-exe-linux-${AWS_ARCH}.zip" \
+    && unzip awscliv2.zip \
+    && ./aws/install \
+    && rm -rf awscliv2.zip aws/
 
-# Instalar software-properties-common (paso 6)
-RUN apt-get update && apt-get install --no-install-recommends -y \
-    software-properties-common && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+# Install SAM CLI (latest)
+RUN pip3 install --no-cache-dir aws-sam-cli-local
 
-# Agregar repositorio Python deadsnakes (paso 7)
-RUN add-apt-repository ppa:deadsnakes/ppa -y
+# Add Go to PATH
+ENV PATH="/usr/local/go/bin:${PATH}"
 
-# Instalar Python 3.11 (paso 8)
-RUN apt-get update && apt-get install --no-install-recommends -y \
-    python3.11 \
-    python3.11-dev \
-    python3.11-distutils \
-    python3.11-venv && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
+RUN adduser --disabled-password --gecos "" --uid 1001 runner \
+    && groupadd docker --gid 123 \
+    && usermod -aG sudo runner \
+    && usermod -aG docker runner \
+    && echo "%sudo   ALL=(ALL:ALL) NOPASSWD:ALL" > /etc/sudoers \
+    && echo "Defaults env_keep += \"DEBIAN_FRONTEND\"" >> /etc/sudoers
 
-# Instalar Node.js repository (paso 9)
-RUN curl -fsSL https://deb.nodesource.com/setup_18.x | bash -
-
-# Instalar Node.js (paso 10)
-RUN apt-get update && apt-get install -y nodejs && \
-    apt-get clean && rm -rf /var/lib/apt/lists/*
-
-# Copiar binarios desde builders
-COPY --from=aws-cli-builder /aws-cli-install /aws-cli-install
-COPY --from=go-builder /usr/local/go /usr/local/go
-
-# Configurar variables de entorno
-ENV PATH="/aws-cli-install/bin:/usr/local/go/bin:${PATH}"
-ENV GOPATH="/home/runner/go"
-ENV GOROOT="/usr/local/go"
-
-# Configurar Python 3.11
-RUN ln -sf /usr/bin/python3.11 /usr/local/bin/python3.11
-
-# Instalar pip para Python 3.11
-RUN curl -sS https://bootstrap.pypa.io/get-pip.py | python3.11
-
-# Actualizar pip y herramientas básicas
-RUN python3.11 -m pip install --upgrade pip setuptools wheel
-
-# Instalar AWS SAM CLI (paso 11)
-RUN python3.11 -m pip install --ignore-installed aws-sam-cli
-
-# Cambiar al directorio del runner
 WORKDIR /home/runner
 
-# Instalar GitHub Actions Runner
-ARG RUNNER_VERSION=2.323.0
-RUN curl -fsSL https://github.com/actions/runner/releases/download/v${RUNNER_VERSION}/actions-runner-linux-x64-${RUNNER_VERSION}.tar.gz -o runner.tar.gz && \
-    tar xzf runner.tar.gz && \
-    rm runner.tar.gz
+COPY --chown=runner:docker --from=build /actions-runner .
+COPY --from=build /usr/local/lib/docker/cli-plugins/docker-buildx /usr/local/lib/docker/cli-plugins/docker-buildx
 
-# Instalar dependencias del runner
-RUN ./bin/installdependencies.sh
+RUN install -o root -g root -m 755 docker/* /usr/bin/ && rm -rf docker
 
-# Crear directorio Go y configurar permisos
-RUN mkdir -p /home/runner/go && \
-    chown -R runner:runner /home/runner
-
-# Actualizar PATH final
-ENV PATH="/home/runner/.local/bin:${PATH}"
-
-# Cambiar a usuario runner
 USER runner
-
-# Verificaciones finales
-RUN echo "=== Verificando instalaciones ===" && \
-    aws --version && \
-    sam --version && \
-    node --version && \
-    npm --version && \
-    go version && \
-    python3.11 --version && \
-    python3.11 -m pip --version && \
-    make --version && \
-    tree --version
-
-WORKDIR /home/runner
-
-CMD ["./run.sh"]
