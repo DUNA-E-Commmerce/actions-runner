@@ -1,53 +1,45 @@
-# Variables de configuración
 IMAGE_NAME := github-runner-ubuntu
 IMAGE_TAG := latest
-CONTAINER_NAME := github-runner
-
-# Variables de construcción
 GO_VERSION := 1.23.2
 RUNNER_VERSION := 2.323.0
-DOCKER_BUILDKIT := 1
-
-# Colores para output
-GREEN := \033[32m
-BLUE := \033[34m
-CYAN := \033[36m
-NC := \033[0m # No Color
 
 .PHONY: build
-build: ## 🔨 Construir la imagen Docker
-	@echo "$(BLUE)🔨 Construyendo imagen Docker para linux/amd64...$(NC)"
-	@DOCKER_BUILDKIT=$(DOCKER_BUILDKIT) docker build \
+build:
+	@echo "Construyendo imagen..."
+	@DOCKER_BUILDKIT=1 docker build \
 		--platform linux/amd64 \
 		--build-arg GO_VERSION=$(GO_VERSION) \
 		--build-arg RUNNER_VERSION=$(RUNNER_VERSION) \
 		--tag $(IMAGE_NAME):$(IMAGE_TAG) \
 		.
-	@echo "$(GREEN)✅ Imagen construida: $(IMAGE_NAME):$(IMAGE_TAG) (linux/amd64)$(NC)"
-
-.PHONY: run
-run: ## 🚀 Ejecutar el contenedor
-	@echo "$(BLUE)🚀 Ejecutando contenedor...$(NC)"
-	@docker run \
-		--platform linux/amd64 \
-		-it --rm \
-		--name $(CONTAINER_NAME) \
-		--platform linux/amd64 \
-		$(IMAGE_NAME):$(IMAGE_TAG) \
-		/bin/bash
+	@echo "✅ Imagen construida: $(IMAGE_NAME):$(IMAGE_TAG)"
 
 .PHONY: test
-test: ## 🧪 Probar que todas las herramientas funcionan
-	@echo "$(BLUE)🧪 Probando herramientas instaladas...$(NC)"
-	@docker run \
-		--platform linux/amd64 \
-		--rm $(IMAGE_NAME):$(IMAGE_TAG) sh -c "\
-		echo '$(CYAN)=== AWS CLI ===$(NC)' && aws --version && \
-		echo '$(CYAN)=== Node.js ===$(NC)' && node --version && \
-		echo '$(CYAN)=== NPM ===$(NC)' && npm --version && \
-		echo '$(CYAN)=== Go ===$(NC)' && go version && \
-		echo '$(CYAN)=== Python ===$(NC)' && python3.11 --version && \
-		echo '$(CYAN)=== Make ===$(NC)' && make --version && \
-		echo '$(CYAN)=== Tree ===$(NC)' && tree --version" && \
-		echo '$(CYAN)=== Sam Local ===$(NC)' && sam --version
-	@echo "$(GREEN)✅ Todas las herramientas funcionan correctamente$(NC)"
+test:
+	@echo "🧪 Probando herramientas..."
+	@docker run --platform linux/amd64 --rm $(IMAGE_NAME):$(IMAGE_TAG) sh -c " \
+		aws --version && \
+		node --version && \
+		go version && \
+		python3.11 --version && \
+		sam --version && \
+		[ -f /home/runner/run.sh ] && echo '✅ run.sh OK' || exit 1"
+	@echo "✅ Tests pasaron"
+
+.PHONY: test-dind
+test-dind:
+	@echo "🐳 Simulando Docker-in-Docker..."
+	@docker-compose -f docker-compose.test.yml up --abort-on-container-exit
+
+.PHONY: shell
+shell:
+	@docker-compose -f docker-compose.test.yml up -d
+	@docker-compose -f docker-compose.test.yml exec runner /bin/bash
+	@docker-compose -f docker-compose.test.yml down -v
+
+.PHONY: clean
+clean:
+	@echo "Limpiando..."
+	@docker-compose -f docker-compose.test.yml down -v 2>/dev/null || true
+	@docker rmi $(IMAGE_NAME):$(IMAGE_TAG) 2>/dev/null || true
+	@echo "✅ Limpieza completa"

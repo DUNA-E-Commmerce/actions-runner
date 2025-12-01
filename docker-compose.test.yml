@@ -1,0 +1,156 @@
+services:
+  # Simula el contenedor docker-daemon
+  docker-daemon:
+    image: docker:dind
+    platform: linux/amd64
+    privileged: true
+    environment:
+      - DOCKER_TLS_CERTDIR=
+      - TINI_SUBREAPER=1
+      - TINI_KILL_PROCESS_GROUP=1
+      - CONTAINERD_LOG_LEVEL=warn
+    command:
+      - sh
+      - -c
+      - |
+        set -e
+        echo "🐳 Configurando Docker daemon..."
+        
+        # Crear configuración del daemon
+        mkdir -p /etc/docker
+        cat > /etc/docker/daemon.json <<'DAEMONJSON'
+        {
+          "dns": ["8.8.8.8", "8.8.4.4", "1.1.1.1"],
+          "dns-opts": ["timeout:2", "attempts:2", "ndots:0"],
+          "dns-search": ["."],
+          "ipv6": false,
+          "ip6tables": false,
+          "log-level": "warn",
+          "storage-driver": "overlay2",
+          "max-concurrent-downloads": 6,
+          "max-download-attempts": 5,
+          "max-concurrent-uploads": 3,
+          "live-restore": false,
+          "shutdown-timeout": 60,
+          "default-runtime": "runc",
+          "default-ulimits": {
+            "nofile": {
+              "Hard": 64000,
+              "Name": "nofile",
+              "Soft": 64000
+            }
+          },
+          "debug": false
+        }
+        DAEMONJSON
+        
+        echo "✅ daemon.json configurado"
+        
+        # Iniciar dockerd en background
+        dockerd \
+          --host=unix:///var/run/docker.sock \
+          --tls=false \
+          --config-file=/etc/docker/daemon.json 2>&1 &
+        
+        DOCKERD_PID=$$!
+        
+        # Esperar a que el socket se cree Y que dockerd responda
+        echo "⏳ Esperando a que Docker daemon esté listo..."
+        for i in $$(seq 1 60); do
+          if [ -S /var/run/docker.sock ]; then
+            chmod 666 /var/run/docker.sock
+            # Intentar conectar al daemon
+            if docker version >/dev/null 2>&1; then
+              echo "✅ Docker daemon ready and responding"
+              break
+            fi
+          fi
+          sleep 1
+        done
+        
+        # Mantener el proceso vivo
+        wait $$DOCKERD_PID
+    volumes:
+      - dind-storage:/var/lib/docker
+      - shared-var-run:/var/run
+      - work:/home/runner/_work
+    networks:
+      - runner-network
+    healthcheck:
+      test: ["CMD", "docker", "version"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+      start_period: 10s
+
+  # Simula el contenedor runner
+  runner:
+    image: github-runner-ubuntu:latest
+    platform: linux/amd64
+    depends_on:
+      docker-daemon:
+        condition: service_healthy
+    privileged: true
+    environment:
+      - DOCKER_HOST=unix:///var/run/docker.sock
+      - DOCKER_BUILDKIT=1
+    command:
+      - sh
+      - -c
+      - |
+        set -e
+        echo "🏃 Runner container iniciando..."
+        echo "⏳ Esperando a que Docker daemon esté disponible..."
+        
+        # Esperar a que el socket esté disponible y funcional
+        for i in $$(seq 1 45); do
+          if [ -S /var/run/docker.sock ] && docker version >/dev/null 2>&1; then
+            echo "✅ Docker daemon ready!"
+            echo ""
+            echo "📋 Versiones instaladas:"
+            echo "  - Docker: $$(docker --version)"
+            echo "  - Docker Compose: $$(docker compose version 2>/dev/null || echo 'not available')"
+            echo "  - Go: $$(go version)"
+            echo "  - Python: $$(python3.11 --version)"
+            echo "  - Node.js: $$(node --version)"
+            echo "  - AWS CLI: $$(aws --version)"
+            echo ""
+            echo "🧪 Probando Docker..."
+            docker pull hello-world
+            docker run --rm hello-world
+            echo ""
+            echo "✅ Docker funciona correctamente!"
+            echo ""
+            echo "📂 Runner files:"
+            ls -la /home/runner/ | head -20
+            echo ""
+            if [ -f /home/runner/run.sh ]; then
+              echo "✅ run.sh encontrado en /home/runner/run.sh"
+              echo ""
+              echo "🎉 Todas las verificaciones pasaron!"
+              exit 0
+            else
+              echo "❌ run.sh NO encontrado"
+              exit 1
+            fi
+          fi
+          sleep 2
+        done
+        echo "❌ ERROR: Docker daemon failed to start within 90 seconds"
+        exit 1
+    volumes:
+      - shared-var-run:/var/run
+      - work:/home/runner/_work
+      - ./test-workflow.sh:/usr/local/bin/test-workflow.sh:ro
+    networks:
+      - runner-network
+    user: "1001:1001"
+
+volumes:
+  dind-storage:
+  shared-var-run:
+  work:
+
+networks:
+  runner-network:
+    driver: bridge

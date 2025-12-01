@@ -10,8 +10,118 @@ permissions:
   packages: write
 
 jobs:
-  build-and-push:
+  test-tools:
+    name: Test - Verify Tools
     runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          platforms: linux/amd64
+
+      - name: Build image for testing
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64
+          push: false
+          load: true
+          tags: github-runner-ubuntu:test
+          build-args: |
+            GO_VERSION=1.23.2
+            RUNNER_VERSION=2.323.0
+
+      - name: Verify all tools are installed
+        run: |
+          echo "🧪 Testing image tools..."
+          docker run --rm --platform linux/amd64 github-runner-ubuntu:test sh -c "
+            set -e
+            echo '✓ AWS CLI:' && aws --version
+            echo '✓ Node.js:' && node --version
+            echo '✓ Go:' && go version
+            echo '✓ Python:' && python3.11 --version
+            echo '✓ SAM CLI:' && sam --version
+            echo '✓ Docker:' && docker --version
+            echo '✓ Git:' && git --version
+            [ -f /home/runner/run.sh ] && echo '✓ Runner script: OK' || exit 1
+          "
+          echo "✅ All tools verified"
+
+  test-docker-in-docker:
+    name: Test - Docker-in-Docker
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v5
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+        with:
+          platforms: linux/amd64
+
+      - name: Build image for testing
+        uses: docker/build-push-action@v5
+        with:
+          context: .
+          platforms: linux/amd64
+          push: false
+          load: true
+          tags: github-runner-ubuntu:test
+          build-args: |
+            GO_VERSION=1.23.2
+            RUNNER_VERSION=2.323.0
+
+      - name: Test Docker-in-Docker functionality
+        run: |
+          echo "🐳 Testing Docker-in-Docker functionality..."
+          
+          # Start docker daemon
+          docker run -d --privileged --name test-dind \
+            --platform linux/amd64 \
+            -e DOCKER_TLS_CERTDIR= \
+            docker:dind \
+            dockerd --host=unix:///var/run/docker.sock --tls=false
+          
+          # Wait for daemon to be ready
+          sleep 10
+          
+          # Test runner with docker
+          docker run --rm --platform linux/amd64 \
+            --network container:test-dind \
+            -v /var/run:/var/run \
+            -e DOCKER_HOST=unix:///var/run/docker.sock \
+            github-runner-ubuntu:test sh -c "
+              set -e
+              echo 'Waiting for Docker daemon...'
+              for i in \$(seq 1 30); do
+                if docker version >/dev/null 2>&1; then
+                  echo '✓ Docker daemon connected'
+                  docker pull hello-world
+                  docker run --rm hello-world
+                  echo '✓ Docker-in-Docker works!'
+                  exit 0
+                fi
+                sleep 2
+              done
+              echo '✗ Docker daemon not ready'
+              exit 1
+            "
+          
+          # Cleanup
+          docker stop test-dind
+          docker rm test-dind
+          
+          echo "✅ Docker-in-Docker test passed"
+
+  build-and-push:
+    name: Build and Push to Registry
+    runs-on: ubuntu-latest
+    needs: [test-tools, test-docker-in-docker]
 
     env:
       REGISTRY: ghcr.io
@@ -77,6 +187,10 @@ jobs:
         run: |
           echo "🚀 **Build Completed Successfully!**" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
+          echo "✅ **All Tests Passed**" >> $GITHUB_STEP_SUMMARY
+          echo "- Tools verification ✓" >> $GITHUB_STEP_SUMMARY
+          echo "- Docker-in-Docker simulation ✓" >> $GITHUB_STEP_SUMMARY
+          echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Image Details:**" >> $GITHUB_STEP_SUMMARY
           echo "- Platform: linux/amd64" >> $GITHUB_STEP_SUMMARY
           echo "- Registry: ${{ env.REGISTRY }}" >> $GITHUB_STEP_SUMMARY
@@ -90,6 +204,7 @@ jobs:
           echo "- Go 1.23.2" >> $GITHUB_STEP_SUMMARY
           echo "- Python 3.11" >> $GITHUB_STEP_SUMMARY
           echo "- GitHub Actions Runner 2.323.0" >> $GITHUB_STEP_SUMMARY
+          echo "- Docker + Buildx" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Image Digest:** \`${{ steps.build.outputs.digest }}\`" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
