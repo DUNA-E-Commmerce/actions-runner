@@ -89,7 +89,7 @@ jobs:
       - name: Load Docker image
         run: docker load --input /tmp/runner-image.tar
 
-      - name: Test Docker-in-Docker with docker-compose
+      - name: Test Docker-in-Docker with docker compose
         run: |
           echo "🐳 Testing Docker-in-Docker functionality..."
           
@@ -157,11 +157,11 @@ jobs:
             shared-var-run:
           EOF
           
-          # Run test
-          docker-compose -f docker-compose.test.yml up --abort-on-container-exit
+          # Run test (using docker compose v2, not docker-compose)
+          docker compose -f docker-compose.test.yml up --abort-on-container-exit
           
           # Cleanup
-          docker-compose -f docker-compose.test.yml down -v
+          docker compose -f docker-compose.test.yml down -v
           
           echo "✅ Docker-in-Docker test passed"
 
