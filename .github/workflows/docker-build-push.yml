@@ -10,10 +10,10 @@ permissions:
   packages: write
 
 jobs:
-  test-tools:
-    name: Test - Verify Tools
+  build:
+    name: Build Image
     runs-on: ubuntu-latest
-
+    
     steps:
       - name: Checkout code
         uses: actions/checkout@v5
@@ -23,7 +23,7 @@ jobs:
         with:
           platforms: linux/amd64
 
-      - name: Build image for testing
+      - name: Build and export image
         uses: docker/build-push-action@v5
         with:
           context: .
@@ -31,9 +31,32 @@ jobs:
           push: false
           load: true
           tags: github-runner-ubuntu:test
+          outputs: type=docker,dest=/tmp/runner-image.tar
           build-args: |
             GO_VERSION=1.23.2
             RUNNER_VERSION=2.323.0
+
+      - name: Upload image artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: runner-image
+          path: /tmp/runner-image.tar
+          retention-days: 1
+
+  test-tools:
+    name: Test - Verify Tools
+    runs-on: ubuntu-latest
+    needs: build
+
+    steps:
+      - name: Download image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: runner-image
+          path: /tmp
+
+      - name: Load Docker image
+        run: docker load --input /tmp/runner-image.tar
 
       - name: Verify all tools are installed
         run: |
@@ -54,72 +77,96 @@ jobs:
   test-docker-in-docker:
     name: Test - Docker-in-Docker
     runs-on: ubuntu-latest
+    needs: build
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - name: Download image artifact
+        uses: actions/download-artifact@v4
         with:
-          platforms: linux/amd64
+          name: runner-image
+          path: /tmp
 
-      - name: Build image for testing
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          platforms: linux/amd64
-          push: false
-          load: true
-          tags: github-runner-ubuntu:test
-          build-args: |
-            GO_VERSION=1.23.2
-            RUNNER_VERSION=2.323.0
+      - name: Load Docker image
+        run: docker load --input /tmp/runner-image.tar
 
-      - name: Test Docker-in-Docker functionality
+      - name: Test Docker-in-Docker with docker-compose
         run: |
           echo "🐳 Testing Docker-in-Docker functionality..."
           
-          # Start docker daemon
-          docker run -d --privileged --name test-dind \
-            --platform linux/amd64 \
-            -e DOCKER_TLS_CERTDIR= \
-            docker:dind \
-            dockerd --host=unix:///var/run/docker.sock --tls=false
+          # Create docker-compose file
+          cat > docker-compose.test.yml <<'EOF'
+          services:
+            docker-daemon:
+              image: docker:dind
+              platform: linux/amd64
+              privileged: true
+              environment:
+                - DOCKER_TLS_CERTDIR=
+              command:
+                - sh
+                - -c
+                - |
+                  dockerd --host=unix:///var/run/docker.sock --tls=false 2>&1 &
+                  for i in \$(seq 1 60); do
+                    if [ -S /var/run/docker.sock ] && docker version >/dev/null 2>&1; then
+                      echo "Docker daemon ready"
+                      break
+                    fi
+                    sleep 1
+                  done
+                  tail -f /dev/null
+              volumes:
+                - shared-var-run:/var/run
+              healthcheck:
+                test: ["CMD", "docker", "version"]
+                interval: 3s
+                timeout: 3s
+                retries: 20
+                start_period: 10s
           
-          # Wait for daemon to be ready
-          sleep 10
+            runner:
+              image: github-runner-ubuntu:test
+              platform: linux/amd64
+              depends_on:
+                docker-daemon:
+                  condition: service_healthy
+              environment:
+                - DOCKER_HOST=unix:///var/run/docker.sock
+              command:
+                - sh
+                - -c
+                - |
+                  set -e
+                  echo 'Testing Docker connection...'
+                  for i in \$(seq 1 30); do
+                    if docker version >/dev/null 2>&1; then
+                      echo '✓ Docker daemon connected'
+                      docker pull hello-world
+                      docker run --rm hello-world
+                      echo '✓ Docker-in-Docker works!'
+                      exit 0
+                    fi
+                    sleep 2
+                  done
+                  echo '✗ Docker daemon not ready'
+                  exit 1
+              volumes:
+                - shared-var-run:/var/run
           
-          # Test runner with docker
-          docker run --rm --platform linux/amd64 \
-            --network container:test-dind \
-            -v /var/run:/var/run \
-            -e DOCKER_HOST=unix:///var/run/docker.sock \
-            github-runner-ubuntu:test sh -c "
-              set -e
-              echo 'Waiting for Docker daemon...'
-              for i in \$(seq 1 30); do
-                if docker version >/dev/null 2>&1; then
-                  echo '✓ Docker daemon connected'
-                  docker pull hello-world
-                  docker run --rm hello-world
-                  echo '✓ Docker-in-Docker works!'
-                  exit 0
-                fi
-                sleep 2
-              done
-              echo '✗ Docker daemon not ready'
-              exit 1
-            "
+          volumes:
+            shared-var-run:
+          EOF
+          
+          # Run test
+          docker-compose -f docker-compose.test.yml up --abort-on-container-exit
           
           # Cleanup
-          docker stop test-dind
-          docker rm test-dind
+          docker-compose -f docker-compose.test.yml down -v
           
           echo "✅ Docker-in-Docker test passed"
 
-  build-and-push:
-    name: Build and Push to Registry
+  push:
+    name: Tag and Push to Registry
     runs-on: ubuntu-latest
     needs: [test-tools, test-docker-in-docker]
 
@@ -136,6 +183,15 @@ jobs:
         run: |
           echo "repository=${GITHUB_REPOSITORY,,}" >> $GITHUB_OUTPUT
           echo "owner=${GITHUB_REPOSITORY_OWNER,,}" >> $GITHUB_OUTPUT
+
+      - name: Download image artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: runner-image
+          path: /tmp
+
+      - name: Load Docker image
+        run: docker load --input /tmp/runner-image.tar
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
@@ -164,24 +220,23 @@ jobs:
             org.opencontainers.image.title=GitHub Actions Runner
             org.opencontainers.image.description=Self-hosted GitHub Actions runner with development tools including AWS CLI, SAM Local, Node.js, Go, Python, and more
 
-      - name: Build and push Docker image (linux/amd64 only)
-        uses: docker/build-push-action@v5
-        with:
-          context: .
-          platforms: linux/amd64
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          cache-from: |
-            type=registry,ref=${{ env.REGISTRY }}/${{ steps.repo.outputs.owner }}/actions-runner:cache
-            type=gha
-          cache-to: |
-            type=registry,ref=${{ env.REGISTRY }}/${{ steps.repo.outputs.owner }}/actions-runner:cache,mode=max
-            type=gha,mode=max
-          build-args: |
-            BUILDKIT_INLINE_CACHE=1
-            GO_VERSION=1.23.2
-            RUNNER_VERSION=2.323.0
+      - name: Tag and push tested image
+        run: |
+          echo "🏷️  Tagging and pushing image..."
+          
+          # Tag image with all metadata tags
+          for tag in ${{ steps.meta.outputs.tags }}; do
+            echo "Tagging: $tag"
+            docker tag github-runner-ubuntu:test "$tag"
+          done
+          
+          # Push all tags
+          for tag in ${{ steps.meta.outputs.tags }}; do
+            echo "Pushing: $tag"
+            docker push "$tag"
+          done
+          
+          echo "✅ Image pushed successfully"
 
       - name: Image digest and summary
         run: |
