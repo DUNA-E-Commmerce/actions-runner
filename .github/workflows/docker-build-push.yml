@@ -35,6 +35,8 @@ jobs:
           build-args: |
             GO_VERSION=1.23.2
             RUNNER_VERSION=2.330.0
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
 
       - name: Upload image artifact
         uses: actions/upload-artifact@v4
