@@ -56,7 +56,8 @@ services:
         
         # Esperar a que el socket se cree Y que dockerd responda
         echo "⏳ Esperando a que Docker daemon esté listo..."
-        for i in $$(seq 1 60); do
+        i=0
+        while [ $$i -lt 60 ]; do
           if [ -S /var/run/docker.sock ]; then
             chmod 666 /var/run/docker.sock
             # Intentar conectar al daemon
@@ -66,6 +67,7 @@ services:
             fi
           fi
           sleep 1
+          i=$$((i + 1))
         done
         
         # Mantener el proceso vivo
@@ -103,7 +105,8 @@ services:
         echo "⏳ Esperando a que Docker daemon esté disponible..."
         
         # Esperar a que el socket esté disponible y funcional
-        for i in $$(seq 1 45); do
+        i=0
+        while [ $$i -lt 45 ]; do
           if [ -S /var/run/docker.sock ] && docker version >/dev/null 2>&1; then
             echo "✅ Docker daemon ready!"
             echo ""
@@ -135,6 +138,7 @@ services:
             fi
           fi
           sleep 2
+          i=$$((i + 1))
         done
         echo "❌ ERROR: Docker daemon failed to start within 90 seconds"
         exit 1

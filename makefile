@@ -1,7 +1,7 @@
 IMAGE_NAME := github-runner-ubuntu
 IMAGE_TAG := latest
 GO_VERSION := 1.23.2
-RUNNER_VERSION := 2.323.0
+RUNNER_VERSION := 2.330.0
 
 .PHONY: build
 build:
@@ -29,17 +29,17 @@ test:
 .PHONY: test-dind
 test-dind:
 	@echo "🐳 Simulando Docker-in-Docker..."
-	@docker-compose -f docker-compose.test.yml up --abort-on-container-exit
+	@docker compose -f docker-compose.test.yml up --abort-on-container-exit
 
 .PHONY: shell
 shell:
-	@docker-compose -f docker-compose.test.yml up -d
-	@docker-compose -f docker-compose.test.yml exec runner /bin/bash
-	@docker-compose -f docker-compose.test.yml down -v
+	@docker compose -f docker-compose.test.yml up -d
+	@docker compose -f docker-compose.test.yml exec runner /bin/bash
+	@docker compose -f docker-compose.test.yml down -v
 
 .PHONY: clean
 clean:
 	@echo "Limpiando..."
-	@docker-compose -f docker-compose.test.yml down -v 2>/dev/null || true
+	@docker compose -f docker-compose.test.yml down -v 2>/dev/null || true
 	@docker rmi $(IMAGE_NAME):$(IMAGE_TAG) 2>/dev/null || true
 	@echo "✅ Limpieza completa"
