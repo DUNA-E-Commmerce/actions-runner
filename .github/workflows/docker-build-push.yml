@@ -102,24 +102,7 @@ jobs:
               privileged: true
               environment:
                 - DOCKER_TLS_CERTDIR=
-              command:
-                - sh
-                - -c
-                - |
-                  set -e
-                  dockerd --host=unix:///var/run/docker.sock --tls=false 2>&1 &
-                  DAEMON_PID=$!
-                  echo "Waiting for Docker daemon to start..."
-                  i=0
-                  while [ $i -lt 60 ]; do
-                    if [ -S /var/run/docker.sock ] && docker version >/dev/null 2>&1; then
-                      echo "Docker daemon ready"
-                      break
-                    fi
-                    sleep 1
-                    i=$((i + 1))
-                  done
-                  wait $DAEMON_PID
+              command: ["sh", "-c", "dockerd --host=unix:///var/run/docker.sock --tls=false 2>&1 & DAEMON_PID=$$!; echo 'Waiting for Docker daemon...'; i=0; while [ $$i -lt 60 ]; do if [ -S /var/run/docker.sock ] && docker version >/dev/null 2>&1; then echo 'Docker daemon ready'; break; fi; sleep 1; i=$$((i + 1)); done; wait $$DAEMON_PID"]
               volumes:
                 - shared-var-run:/var/run
               healthcheck:
@@ -137,26 +120,7 @@ jobs:
                   condition: service_healthy
               environment:
                 - DOCKER_HOST=unix:///var/run/docker.sock
-              command:
-                - sh
-                - -c
-                - |
-                  set -e
-                  echo 'Testing Docker connection...'
-                  i=0
-                  while [ $i -lt 30 ]; do
-                    if docker version >/dev/null 2>&1; then
-                      echo '✓ Docker daemon connected'
-                      docker pull hello-world
-                      docker run --rm hello-world
-                      echo '✓ Docker-in-Docker works!'
-                      exit 0
-                    fi
-                    sleep 2
-                    i=$((i + 1))
-                  done
-                  echo '✗ Docker daemon not ready'
-                  exit 1
+              command: ["sh", "-c", "echo 'Testing Docker connection...'; i=0; while [ $$i -lt 30 ]; do if docker version >/dev/null 2>&1; then echo 'Docker daemon connected'; docker pull hello-world; docker run --rm hello-world; echo 'Docker-in-Docker works!'; exit 0; fi; sleep 2; i=$$((i + 1)); done; echo 'Docker daemon not ready'; exit 1"]
               volumes:
                 - shared-var-run:/var/run
           
