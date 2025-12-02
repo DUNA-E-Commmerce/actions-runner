@@ -163,9 +163,11 @@ jobs:
         with:
           images: ${{ env.REGISTRY }}/${{ steps.repo.outputs.owner }}/actions-runner
           tags: |
-            type=semver,pattern={{version}},prefix=v
-            type=ref,event=branch
-            type=raw,value=latest,enable={{is_default_branch}}
+            # For releases: v0.0.30 from tag
+            type=semver,pattern=v{{version}}
+            type=semver,pattern=v{{major}}.{{minor}}
+            # Always push latest on default branch or release
+            type=raw,value=latest,enable=${{ github.event_name == 'release' || github.ref == format('refs/heads/{0}', github.event.repository.default_branch) }}
           labels: |
             org.opencontainers.image.source=${{ github.repository }}
             org.opencontainers.image.revision=${{ github.sha }}
@@ -173,19 +175,25 @@ jobs:
             org.opencontainers.image.description=Self-hosted GitHub Actions runner with development tools including AWS CLI, SAM Local, Node.js, Go, Python, and more
 
       - name: Tag and push tested image
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
         run: |
           echo "🏷️  Tagging and pushing image..."
           
           # Tag image with all metadata tags
-          for tag in ${{ steps.meta.outputs.tags }}; do
-            echo "Tagging: $tag"
-            docker tag github-runner-ubuntu:test "$tag"
+          echo "$TAGS" | while IFS= read -r tag; do
+            if [ -n "$tag" ]; then
+              echo "Tagging: $tag"
+              docker tag github-runner-ubuntu:test "$tag"
+            fi
           done
           
           # Push all tags
-          for tag in ${{ steps.meta.outputs.tags }}; do
-            echo "Pushing: $tag"
-            docker push "$tag"
+          echo "$TAGS" | while IFS= read -r tag; do
+            if [ -n "$tag" ]; then
+              echo "Pushing: $tag"
+              docker push "$tag"
+            fi
           done
           
           echo "✅ Image pushed successfully"
