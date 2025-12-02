@@ -94,51 +94,23 @@ jobs:
         run: |
           echo "🐳 Testing Docker-in-Docker functionality..."
           
-          # Create docker-compose file
-          cat > docker-compose.test.yml <<'EOF'
-          services:
-            docker-daemon:
-              image: docker:dind
-              platform: linux/amd64
-              privileged: true
-              environment:
-                - DOCKER_TLS_CERTDIR=
-              command: ["sh", "-c", "dockerd --host=unix:///var/run/docker.sock --tls=false 2>&1 & DAEMON_PID=$$!; echo 'Waiting for Docker daemon...'; i=0; while [ $$i -lt 60 ]; do if [ -S /var/run/docker.sock ] && docker version >/dev/null 2>&1; then echo 'Docker daemon ready'; break; fi; sleep 1; i=$$((i + 1)); done; wait $$DAEMON_PID"]
-              volumes:
-                - shared-var-run:/var/run
-              healthcheck:
-                test: ["CMD", "docker", "version"]
-                interval: 3s
-                timeout: 3s
-                retries: 20
-                start_period: 10s
-            runner:
-              image: github-runner-ubuntu:test
-              platform: linux/amd64
-              depends_on:
-                docker-daemon:
-                  condition: service_healthy
-              environment:
-                - DOCKER_HOST=unix:///var/run/docker.sock
-              command: ["sh", "-c", "echo 'Testing Docker connection...'; i=0; while [ $$i -lt 30 ]; do if docker version >/dev/null 2>&1; then echo 'Docker daemon connected'; docker pull hello-world; docker run --rm hello-world; echo 'Docker-in-Docker works!'; exit 0; fi; sleep 2; i=$$((i + 1)); done; echo 'Docker daemon not ready'; exit 1"]
-              volumes:
-                - shared-var-run:/var/run
-          volumes:
-            shared-var-run:
-          EOF
+          # Create a dummy test-workflow.sh (required by docker-compose.test.yml)
+          echo '#!/bin/sh' > test-workflow.sh
+          echo 'echo "Test workflow placeholder"' >> test-workflow.sh
+          chmod +x test-workflow.sh
           
-          # Strip leading whitespace (10 spaces) from heredoc
-          sed -i 's/^          //' docker-compose.test.yml
+          # Update the image tag from :latest to :test for CI
+          sed 's/github-runner-ubuntu:latest/github-runner-ubuntu:test/g' docker-compose.test.yml > docker-compose.ci.yml
           
-          # Debug: show generated file
-          echo "Generated docker-compose.test.yml:"
-          cat docker-compose.test.yml
+          # Show the compose file being used
+          echo "Using docker-compose.ci.yml:"
+          cat docker-compose.ci.yml
           
-          # Run test (using docker compose v2, not docker-compose)
-          docker compose -f docker-compose.test.yml up --abort-on-container-exit
+          # Run test
+          docker compose -f docker-compose.ci.yml up --abort-on-container-exit
           
           # Cleanup
-          docker compose -f docker-compose.test.yml down -v
+          docker compose -f docker-compose.ci.yml down -v
           
           echo "✅ Docker-in-Docker test passed"
 
