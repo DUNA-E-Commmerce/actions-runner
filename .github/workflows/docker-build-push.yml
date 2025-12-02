@@ -29,7 +29,6 @@ jobs:
           context: .
           platforms: linux/amd64
           push: false
-          load: true
           tags: github-runner-ubuntu:test
           outputs: type=docker,dest=/tmp/runner-image.tar
           build-args: |
@@ -37,6 +36,7 @@ jobs:
             RUNNER_VERSION=2.323.0
           cache-from: type=gha
           cache-to: type=gha,mode=max
+          provenance: false
 
       - name: Upload image artifact
         uses: actions/upload-artifact@v4
