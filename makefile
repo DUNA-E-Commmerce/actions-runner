@@ -1,7 +1,7 @@
 IMAGE_NAME := github-runner-ubuntu
 IMAGE_TAG := latest
 GO_VERSION := 1.23.2
-RUNNER_VERSION := 2.330.0
+RUNNER_VERSION := 2.323.0
 
 .PHONY: build
 build:

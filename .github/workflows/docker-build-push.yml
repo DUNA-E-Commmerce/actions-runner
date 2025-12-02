@@ -34,7 +34,7 @@ jobs:
           outputs: type=docker,dest=/tmp/runner-image.tar
           build-args: |
             GO_VERSION=1.23.2
-            RUNNER_VERSION=2.330.0
+            RUNNER_VERSION=2.323.0
           cache-from: type=gha
           cache-to: type=gha,mode=max
 
@@ -219,7 +219,7 @@ jobs:
           echo "- Node.js 18" >> $GITHUB_STEP_SUMMARY
           echo "- Go 1.23.2" >> $GITHUB_STEP_SUMMARY
           echo "- Python 3.11" >> $GITHUB_STEP_SUMMARY
-          echo "- GitHub Actions Runner 2.330.0" >> $GITHUB_STEP_SUMMARY
+          echo "- GitHub Actions Runner 2.323.0" >> $GITHUB_STEP_SUMMARY
           echo "- Docker + Buildx" >> $GITHUB_STEP_SUMMARY
           echo "" >> $GITHUB_STEP_SUMMARY
           echo "**Image Digest:** \`${{ steps.build.outputs.digest }}\`" >> $GITHUB_STEP_SUMMARY
