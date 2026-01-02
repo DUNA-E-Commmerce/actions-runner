@@ -43,6 +43,8 @@ jobs:
           build-args: |
             GO_VERSION=1.23.2
             RUNNER_VERSION=2.323.0
+            NODE16_VERSION=16.20.2
+            NODE20_VERSION=20.18.0
           cache-from: type=registry,ref=ghcr.io/${{ steps.repo.outputs.owner }}/actions-runner:buildcache
           cache-to: type=registry,ref=ghcr.io/${{ steps.repo.outputs.owner }}/actions-runner:buildcache,mode=max
           provenance: false
