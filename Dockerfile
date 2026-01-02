@@ -135,4 +135,18 @@ COPY --from=build /usr/local/lib/docker/cli-plugins/docker-compose /usr/local/li
 
 RUN install -o root -g root -m 755 docker/* /usr/bin/ && rm -rf docker
 
+# Create externals directory required by ARC (Actions Runner Controller)
+# This directory contains Node.js runtimes needed by GitHub Actions
+RUN mkdir -p /home/runner/externals && chown runner:docker /home/runner/externals
+
+# Download Node.js runtimes to externals (required by actions)
+ARG NODE16_VERSION=16.20.2
+ARG NODE20_VERSION=20.18.0
+
+RUN cd /home/runner/externals && \
+    mkdir -p node16/bin node20/bin && \
+    curl -fsSL https://nodejs.org/dist/v${NODE16_VERSION}/node-v${NODE16_VERSION}-linux-x64.tar.gz | tar -xz --strip-components=1 -C node16 && \
+    curl -fsSL https://nodejs.org/dist/v${NODE20_VERSION}/node-v${NODE20_VERSION}-linux-x64.tar.gz | tar -xz --strip-components=1 -C node20 && \
+    chown -R runner:docker /home/runner/externals
+
 USER runner
